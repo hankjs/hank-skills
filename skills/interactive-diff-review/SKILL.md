@@ -1,7 +1,6 @@
 ---
 name: interactive-diff-review
-description: Interactive git diff review skill. Parses git diff output into individual hunks, presents each hunk to the user with analysis for accept/reject decisions, verifies complete coverage, and generates a Markdown review report. Supports commands: review (default), verify, apply, commit.
-argument-hint: "[commit|commit_a commit_b] [--verify] [--apply] [--commit]"
+description: "Supports commands: [commit|commit_a commit_b] [--verify] [--apply] [--commit] Interactive git diff review skill. Parses git diff output into individual hunks, presents each hunk to the user with analysis for accept/reject decisions, verifies complete coverage, and generates a Markdown review report. "
 ---
 
 # Git Diff Review Skill
