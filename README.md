@@ -25,6 +25,13 @@ hank-skills/
             └── edge-cases.md     # Edge case handling
 ```
 
+## Installation
+
+```bash
+# Install a specific skill
+npx skills add https://github.com/hankjs/hank-skills --skill interactive-diff-review
+```
+
 ## Usage
 
 Invoke via `/interactive-diff-review` in Claude Code:

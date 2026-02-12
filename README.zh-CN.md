@@ -25,6 +25,13 @@ hank-skills/
             └── edge-cases.md     # 边界情况处理
 ```
 
+## 安装
+
+```bash
+# 安装指定 skill
+npx skills add https://github.com/hankjs/hank-skills --skill interactive-diff-review
+```
+
 ## 使用方式
 
 在 Claude Code 中通过 `/interactive-diff-review` 调用，支持以下参数：
