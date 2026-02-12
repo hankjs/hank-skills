@@ -1,11 +1,35 @@
 ---
 name: interactive-diff-review
-description: Interactive git diff review skill. Parses git diff output into individual hunks, presents each hunk to the user with analysis for accept/reject decisions, verifies complete coverage, and generates a Markdown review report.
+description: Interactive git diff review skill. Parses git diff output into individual hunks, presents each hunk to the user with analysis for accept/reject decisions, verifies complete coverage, and generates a Markdown review report. Supports commands: review (default), verify, apply, commit.
+argument-hint: "[commit|commit_a commit_b] [--verify] [--apply] [--commit]"
 ---
 
 # Git Diff Review Skill
 
-Interactive hunk-by-hunk code review. Parse → Review → Verify → Report.
+Interactive hunk-by-hunk code review. Parse → Review → Verify → Report → Apply → Commit.
+
+---
+
+## Commands
+
+Parse `$ARGUMENTS` to determine the command and diff target:
+
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `review` | `/interactive-diff-review [target]` | **Default**. Full interactive review: parse → review → report |
+| `--verify` | `/interactive-diff-review --verify` | Check report exists, matches current diff, and all hunks passed |
+| `--apply` | `/interactive-diff-review --apply` | Fix code based on rejected hunks' review suggestions |
+| `--commit` | `/interactive-diff-review --commit` | Generate and execute git commit (requires `--verify` pass first) |
+
+**Target** is optional: `<commit>`, `<commit_a> <commit_b>`, or omit for auto-detect (staged → workspace).
+
+Commands can be combined: `/interactive-diff-review --apply --commit` will apply fixes then commit if verify passes.
+
+### Command Routing
+
+1. Parse `$ARGUMENTS` — extract command flags and remaining positional args (diff target).
+2. If no command flag is present → default to `review`.
+3. Route to the corresponding section below.
 
 ---
 
@@ -107,13 +131,71 @@ Build the report in the **detected language** (technical terms in English), orde
 
 ---
 
+## Command: `--verify`
+
+Validates that the review is complete and current.
+
+1. Check `diff-review-report.md` exists in project root. If not → error: "No report found. Run `review` first."
+2. Re-run `resolve_diff.py` + `parse_hunks.py` with same target args to get current hunks.
+3. Parse the report's Overview table to extract reviewed hunks (file + type + status).
+4. Compare:
+   - Every current hunk has a matching entry in the report (by file path + hunk header + body hash).
+   - No extra entries in report that don't exist in current diff (stale entries).
+5. Check that all hunks have status ✅ Accepted (no ❌ Rejected, no missing).
+6. Output result:
+   - **PASS**: "Verification passed. All N hunks reviewed and accepted. Ready to commit."
+   - **FAIL — unreviewed hunks**: List the unmatched hunks.
+   - **FAIL — rejected hunks**: List the rejected hunks with their reasons.
+   - **FAIL — stale report**: Report doesn't match current diff. Suggest re-running `review`.
+
+---
+
+## Command: `--apply`
+
+Fixes code based on review suggestions for rejected hunks.
+
+1. Check `diff-review-report.md` exists. If not → error.
+2. Parse the report to find all ❌ Rejected hunks and their rejection reasons + analysis suggestions.
+3. For each rejected hunk (in diff order):
+   a. Read the relevant file and locate the code region from the hunk.
+   b. Based on the rejection reason and the review analysis, generate a fix.
+   c. Apply the fix using Edit tool.
+   d. Show the user what was changed and why.
+4. After all fixes applied, inform the user:
+   - "Applied fixes for N rejected hunks. Run `--verify` or re-run `review` to confirm."
+
+**Note**: `--apply` does NOT re-run the review. The user should run `review` again or `--verify` after applying.
+
+---
+
+## Command: `--commit`
+
+Generates and executes a git commit. Requires verification to pass first.
+
+1. Run the `--verify` flow internally (same as above).
+2. If verify **FAILS** → stop and show the failure reason. Do not commit.
+3. If verify **PASSES**:
+   a. Parse the report to build a commit message:
+      - Subject line: summarize the changes (max 72 chars), in detected language.
+      - Body: list the key changes from the report overview (accepted hunks grouped by file).
+   b. Show the proposed commit message to the user for confirmation.
+   c. On user approval:
+      - `git add -A` (or stage the specific files from the review).
+      - `git commit` with the message.
+   d. Show the commit result.
+
+---
+
 ## Parameter Reference
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| (none) | — | Auto-detect: staged → workspace → error |
+| (none) | — | Default `review` command, auto-detect diff source |
 | `<commit>` | string | Commit hash, short hash, tag, or ref |
 | `<commit_a> <commit_b>` | string | Commit range |
+| `--verify` | flag | Run verification check on existing report |
+| `--apply` | flag | Apply fixes for rejected hunks |
+| `--commit` | flag | Verify + generate git commit |
 
 ---
 
