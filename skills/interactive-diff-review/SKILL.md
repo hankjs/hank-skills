@@ -5,7 +5,7 @@ description: "Supports commands: [commit|commit_a commit_b] [--verify] [--apply]
 
 # Git Diff Review Skill
 
-Interactive hunk-by-hunk code review. Parse → Review → Verify → Report → Apply → Commit.
+Interactive hunk-by-hunk code review. Resume → Parse → Review → Verify → Report → Apply → Commit.
 
 ---
 
@@ -38,31 +38,88 @@ Copy this checklist and check off items as you complete them:
 
 ```
 Diff Review Progress:
+- [ ] Step 0: Check for Existing Progress
+  - [ ] 0.1 Check if diff-review-progress.md exists
+  - [ ] 0.2 If exists, parse header and count pending vs reviewed hunks
+  - [ ] 0.3 Ask user: Resume or Restart?
+  - [ ] 0.4 If resume → skip to Step 2 (pending hunks only)
+  - [ ] 0.5 If restart → delete progress file, continue to Step 1
 - [ ] Step 1: Resolve & Parse
   - [ ] 1.1 Run resolve_diff.py to get diff + language
   - [ ] 1.2 Verify no error, inform user of diff source + language
   - [ ] 1.3 Run parse_hunks.py to split into hunks
   - [ ] 1.4 Handle edge cases ⚠️ Load references/edge-cases.md
+  - [ ] 1.5 Write diff-review-progress.md ⚠️ Load references/progress-template.md
 - [ ] Step 2: Interactive Review ⚠️ CORE LOOP
   - [ ] Load references/review-format.md
   - [ ] 2.1 Display hunk (index/total, file, type, diff body)
   - [ ] 2.2 Provide analysis (summary, impact, risks, suggestions)
   - [ ] 2.3 Collect decision via ask_user_input (Accept / Reject / Skip)
   - [ ] 2.4 If rejected, ask reason (open-ended text follow-up)
-  - [ ] 2.5 Show running tally, advance to next hunk
-  - [ ] 2.6 Repeat 2.1–2.5 until all hunks done
-  - [ ] 2.7 Loop back for any skipped hunks
+  - [ ] 2.5 Update diff-review-progress.md (hunk status, analysis, decision, reviewed counter)
+  - [ ] 2.6 Show running tally, advance to next hunk
+  - [ ] 2.7 Repeat 2.1–2.6 until all hunks done
+  - [ ] 2.8 Loop back for any skipped hunks
 - [ ] Step 3: Coverage Verification ⚠️ REQUIRED
   - [ ] 3.1 Re-run resolve_diff.py + parse_hunks.py
-  - [ ] 3.2 Compare new hunks against reviewed hunks (file + header + body)
-  - [ ] 3.3 If new/changed hunks → review them (back to Step 2)
-  - [ ] 3.4 Confirm full coverage before proceeding
+  - [ ] 3.2 Compare new hunks against progress file entries (file + header + body)
+  - [ ] 3.3 If new/changed hunks → append to progress file, review them (back to Step 2)
+  - [ ] 3.4 Confirm full coverage, set Phase to "verified"
 - [ ] Step 4: Generate Report
   - [ ] Load references/report-template.md
-  - [ ] 4.1 Build Markdown report (detected language, diff order)
-  - [ ] 4.2 Save to /mnt/user-data/outputs/diff-review-report.md
-  - [ ] 4.3 Present to user
+  - [ ] 4.1 Read diff-review-progress.md as input source
+  - [ ] 4.2 Build Markdown report (detected language, diff order)
+  - [ ] 4.3 Save to diff-review-report.md in the project root
+  - [ ] 4.4 Set Phase to "completed" in progress file
+  - [ ] 4.5 Present to user
 ```
+
+---
+
+## Step 0: Check for Existing Progress
+
+Before starting any review work, check if a progress file already exists.
+
+### 0.1 Check for progress file
+
+Look for `diff-review-progress.md` in the project root.
+
+- If the file **does not exist** → proceed to Step 1.
+- If the file **exists** → continue to 0.2.
+
+### 0.2 Parse progress state
+
+Read `diff-review-progress.md` and extract:
+- **Phase**: current workflow phase
+- **Reviewed counter**: `X / N`
+- **Pending hunks**: count of hunks with `Status: pending`
+- **Diff Source** and **Target Args**: for context
+
+### 0.3 Ask user
+
+Present the state to the user and ask:
+
+- If there are **pending hunks** (Phase = `reviewing`):
+  > "Found an existing review in progress (X/N hunks reviewed, diff source: ...). Resume or restart?"
+  - **Resume**: Skip to Step 2, only iterate through pending hunks.
+  - **Restart**: Delete progress file, proceed to Step 1.
+
+- If **all hunks are reviewed** (Phase = `verified` or `completed`):
+  > "Found a completed review (N/N hunks reviewed). Regenerate the report, or restart a fresh review?"
+  - **Regenerate**: Skip to Step 4.
+  - **Restart**: Delete progress file, proceed to Step 1.
+
+- If **Phase = `parsing`** (interrupted during Step 1):
+  > "Found an incomplete progress file (parsing was interrupted). Restarting fresh."
+  - Delete progress file, proceed to Step 1.
+
+### 0.4 Resume flow
+
+When resuming, re-read the progress file to build the hunk list. Filter to only `Status: pending` hunks. Enter Step 2 with these hunks. The progress file's existing reviewed hunks are preserved.
+
+### 0.5 Restart flow
+
+Delete `diff-review-progress.md` and proceed to Step 1 from scratch.
 
 ---
 
@@ -100,6 +157,16 @@ Returns JSON: `{ total, hunks: [{ index, file, header, body, type, status, reaso
 
 Load `references/edge-cases.md` and handle accordingly.
 
+### 1.5 Write progress file
+
+Load `references/progress-template.md` for the format specification.
+
+Create `diff-review-progress.md` in the project root with:
+- Header metadata (date, diff source, language, target args, total hunks, reviewed = 0/N, phase = `reviewing`)
+- One section per hunk with: type, status = `pending`, header, empty analysis/decision, diff body
+
+Set Phase to `reviewing` (parsing is complete, ready for review loop).
+
 ---
 
 ## Step 2: Interactive Review
@@ -108,17 +175,30 @@ Load `references/edge-cases.md` and handle accordingly.
 
 All UI text uses the **detected language** from Step 1. Technical terms remain in English.
 
-Loop through each hunk: display → analyze → collect decision → show tally → next.
+Loop through each hunk (or pending hunks only if resuming): display → analyze → collect decision → **update progress file** → show tally → next.
+
+### Progress file updates
+
+After each hunk decision (2.3/2.4), use the Edit tool to update `diff-review-progress.md`:
+
+1. **Update the hunk's Status** — change `pending` to `✅ Accepted` or `❌ Rejected`.
+2. **Fill in Analysis** — replace the empty Analysis section with the summary, impact, risks, and suggestions.
+3. **Fill in Decision** — replace the empty Decision section with the accept/reject decision and rejection reason if applicable.
+4. **Update the Reviewed counter** — increment the `Reviewed: X / N` line in the header.
+
+The progress file is the source of truth — if context is lost, the review can resume from it.
+
 After the first pass, loop back for any skipped hunks.
 
 ---
 
 ## Step 3: Coverage Verification
 
-1. Re-run `resolve_diff.py` + `parse_hunks.py` with same arguments as Step 1.
-2. Compare new hunks against reviewed hunks by `file + header + body`.
-3. New/changed hunks found → go back to Step 2 for those hunks only.
-4. Confirm full coverage. Only proceed to Step 4 when all hunks are decided.
+1. Re-run `resolve_diff.py` + `parse_hunks.py` with same arguments as Step 1 (read **Target Args** from progress file if needed).
+2. Read `diff-review-progress.md` to get the reviewed hunks.
+3. Compare new hunks against progress file entries by `file + header + body`.
+4. New/changed hunks found → append them to the progress file as pending, update Total Hunks, then go back to Step 2 for those hunks only.
+5. Confirm full coverage. Set Phase to `verified` in the progress file. Only proceed to Step 4 when all hunks are decided.
 
 ---
 
@@ -126,7 +206,10 @@ After the first pass, loop back for any skipped hunks.
 
 **Before starting this step**, load `references/report-template.md` for the full template.
 
-Build the report in the **detected language** (technical terms in English), ordered by original diff sequence. Save to `diff-review-report.md` in the project root and present to user.
+1. Read `diff-review-progress.md` as the **input source** — all hunk data, analysis, and decisions come from the progress file.
+2. Build the report in the **detected language** (technical terms in English), ordered by original diff sequence.
+3. Save to `diff-review-report.md` in the project root and present to user.
+4. Set Phase to `completed` in the progress file.
 
 ---
 
@@ -218,5 +301,13 @@ git-diff-review/
 └── references/
     ├── review-format.md              # Step 2: display, analysis, decisions
     ├── report-template.md            # Step 4: Markdown report template
+    ├── progress-template.md          # Steps 1-2: progress document format
     └── edge-cases.md                 # Step 1.4: edge case handling
 ```
+
+### Generated Files (project root)
+
+| File | Created By | Purpose |
+|------|-----------|---------|
+| `diff-review-progress.md` | Step 1 | Persistent review state — survives context loss |
+| `diff-review-report.md` | Step 4 | Final review report |

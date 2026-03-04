@@ -2,6 +2,8 @@
 
 Loaded at Step 4. Defines the Markdown report structure.
 
+**Input source**: Read `diff-review-progress.md` (the progress file) to get all hunk data, analysis, and decisions. The progress file is the source of truth — do not rely on conversation context for hunk state.
+
 All labels and content must be in the **detected language**. Technical terms (file paths, git commands, code) remain in English. The template below shows English placeholders — replace with the appropriate language.
 
 ---
