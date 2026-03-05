@@ -3,8 +3,8 @@
 Loaded at Step 1 (creation) and Step 2 (updates). Defines the persistent progress document format.
 
 The review state is split into two file types:
-- **Index file** (`.review/[review-name]/diff-review-progress.md`) — session metadata + chunk status table. Stays small (under 5 KB even for 500 hunks).
-- **Chunk files** (`.review/[review-name]/chunk/[id].md`) — one file per hunk, holding the diff body, analysis, and decision.
+- **Index file** (`.review/[review-name]/diff-review-progress.md`) — session metadata + hunk status table. Stays small (under 5 KB even for 500 hunks).
+- **Hunk files** (`.review/[review-name]/hunk/[id].md`) — one file per hunk, holding the diff body, analysis, and decision.
 
 Together they are the **source of truth** for all review state. They survive context loss and enable review resumption.
 
@@ -26,7 +26,7 @@ All labels and content must be in the **detected language**. Technical terms (fi
 - **Reviewed**: 0 / N
 - **Phase**: parsing | reviewing | verified | completed
 
-## Chunks
+## Hunks
 
 | ID | File | Type | Status |
 |----|------|------|--------|
@@ -35,14 +35,14 @@ All labels and content must be in the **detected language**. Technical terms (fi
 | 003 | path/to/login.ts | modified | pending |
 ```
 
-**Chunk ID** is zero-padded index: `001`, `002`, ..., `999`. Matches the corresponding `chunk/[id].md` file.
+**Hunk ID** is zero-padded index: `001`, `002`, ..., `999`. Matches the corresponding `hunk/[id].md` file.
 
 ---
 
-## Chunk File Template (chunk/[id].md)
+## Hunk File Template (hunk/[id].md)
 
 ```markdown
-# Chunk [ID] — `path/to/file.ts`
+# Hunk [ID] — `path/to/file.ts`
 
 - **Type**: modified
 - **Status**: pending
@@ -87,7 +87,7 @@ All labels and content must be in the **detected language**. Technical terms (fi
 | `verified` | Step 3 passed — coverage confirmed |
 | `completed` | Step 4 done — report generated |
 
-### Index Chunk Table Columns
+### Index Hunk Table Columns
 
 | Column | Set At | Updated At | Description |
 |--------|--------|------------|-------------|
@@ -96,7 +96,7 @@ All labels and content must be in the **detected language**. Technical terms (fi
 | **Type** | Step 1 | — | `modified`, `added`, `deleted`, `renamed`, `binary` |
 | **Status** | Step 1 (`pending`) | Step 2 | `pending`, `✅ Accepted`, `❌ Rejected` |
 
-### Chunk File Fields
+### Hunk File Fields
 
 | Field | Set At | Updated At | Description |
 |-------|--------|------------|-------------|
@@ -111,21 +111,21 @@ All labels and content must be in the **detected language**. Technical terms (fi
 
 ## Rules
 
-1. **Creation**: At the end of Step 1, write the index file (all rows `pending`) and one chunk file per hunk (N Write operations).
+1. **Creation**: At the end of Step 1, write the index file (all rows `pending`) and one hunk file per hunk (N Write operations).
 2. **Incremental updates**: After each hunk review in Step 2, use two Edit calls:
-   - Edit `chunk/[id].md` — update Status, Analysis, Decision.
-   - Edit `diff-review-progress.md` — update the status cell in the chunk table row + increment the `Reviewed` counter.
-3. **Source of truth**: Steps 3 and 4 read from the index + chunk files, not from conversation context.
+   - Edit `hunk/[id].md` — update Status, Analysis, Decision.
+   - Edit `diff-review-progress.md` — update the status cell in the hunk table row + increment the `Reviewed` counter.
+3. **Source of truth**: Steps 3 and 4 read from the index + hunk files, not from conversation context.
 4. **Phase transitions**: Update the Phase field in the index when transitioning between steps.
-5. **Cleanup**: The index and chunk files remain after Step 4 (Phase = `completed`). They are only deleted on user request, when starting a fresh review (Step 0 restart), or when `--archive` moves the entire directory to `.review/archive/[review-name]/`.
+5. **Cleanup**: The index and hunk files remain after Step 4 (Phase = `completed`). They are only deleted on user request, when starting a fresh review (Step 0 restart), or when `--archive` moves the entire directory to `.review/archive/[review-name]/`.
 
 ---
 
 ## Update Examples
 
-### After reviewing a hunk (Step 2) — chunk file edit
+### After reviewing a hunk (Step 2) — hunk file edit
 
-Update `chunk/002.md` — replace the Status, Analysis, and Decision sections:
+Update `hunk/002.md` — replace the Status, Analysis, and Decision sections:
 
 ```
 - **Status**: ✅ Accepted
@@ -154,7 +154,7 @@ Update the status cell in the table row and the Reviewed counter:
 - **Reviewed**: 3 / 10
 ```
 
-### After rejecting a hunk (Step 2) — chunk file edit
+### After rejecting a hunk (Step 2) — hunk file edit
 
 ```
 - **Status**: ❌ Rejected

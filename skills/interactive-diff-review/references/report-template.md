@@ -2,7 +2,7 @@
 
 Loaded at Step 4. Defines the Markdown report structure.
 
-**Input source**: Read `.review/[review-name]/diff-review-progress.md` (the index) for the ordered chunk list and session metadata. Then read each `.review/[review-name]/chunk/[id].md` for hunk data, analysis, and decisions. The index + chunk files are the source of truth — do not rely on conversation context for hunk state.
+**Input source**: Read `.review/[review-name]/diff-review-progress.md` (the index) for the ordered hunk list and session metadata. Then read each `.review/[review-name]/hunk/[id].md` for hunk data, analysis, and decisions. The index + hunk files are the source of truth — do not rely on conversation context for hunk state.
 
 All labels and content must be in the **detected language**. Technical terms (file paths, git commands, code) remain in English. The template below shows English placeholders — replace with the appropriate language.
 

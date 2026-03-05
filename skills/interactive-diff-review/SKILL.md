@@ -41,9 +41,9 @@ Copy this checklist and check off items as you complete them:
 Diff Review Progress:
 - [ ] Step 0: Check for Existing Progress
   - [ ] 0.1 Scan .review/ for existing progress files (diff-review-progress.md inside subdirs)
-  - [ ] 0.2 If found, parse index header and count pending vs reviewed chunks
+  - [ ] 0.2 If found, parse index header and count pending vs reviewed hunks
   - [ ] 0.3 Ask user: Resume or Restart?
-  - [ ] 0.4 If resume → skip to Step 2 (pending chunks only)
+  - [ ] 0.4 If resume → skip to Step 2 (pending hunks only)
   - [ ] 0.5 If restart → delete .review/[review-name]/ directory, continue to Step 1
 - [ ] Step 1: Resolve & Parse
   - [ ] 1.1 Run resolve_diff.py to get diff + language
@@ -51,27 +51,27 @@ Diff Review Progress:
   - [ ] 1.3 Run parse_hunks.py to split into hunks
   - [ ] 1.4 Handle edge cases ⚠️ Load references/edge-cases.md
   - [ ] 1.5 Generate review-name slug from diff content summary
-  - [ ] 1.6 Write index + chunk files ⚠️ Load references/progress-template.md
-      - Write .review/[review-name]/diff-review-progress.md (index: metadata + chunk table)
-      - Write .review/[review-name]/chunk/[id].md for each hunk
+  - [ ] 1.6 Write index + hunk files ⚠️ Load references/progress-template.md
+      - Write .review/[review-name]/diff-review-progress.md (index: metadata + hunk table)
+      - Write .review/[review-name]/hunk/[id].md for each hunk
 - [ ] Step 2: Interactive Review ⚠️ CORE LOOP
   - [ ] Load references/review-format.md
-  - [ ] 2.1 Display hunk (index/total, file, type, diff body) — read chunk/[id].md
+  - [ ] 2.1 Display hunk (index/total, file, type, diff body) — read hunk/[id].md
   - [ ] 2.2 Provide analysis (summary, impact, risks, suggestions)
   - [ ] 2.3 Collect decision via ask_user_input (Accept / Reject / Skip)
   - [ ] 2.4 If rejected, ask reason (open-ended text follow-up)
-  - [ ] 2.5 Update chunk file (status, analysis, decision) + update index row + reviewed counter
+  - [ ] 2.5 Update hunk file (status, analysis, decision) + update index row + reviewed counter
   - [ ] 2.6 Show running tally, advance to next hunk
   - [ ] 2.7 Repeat 2.1–2.6 until all hunks done
   - [ ] 2.8 Loop back for any skipped hunks
 - [ ] Step 3: Coverage Verification ⚠️ REQUIRED
   - [ ] 3.1 Re-run resolve_diff.py + parse_hunks.py
-  - [ ] 3.2 Read index to enumerate chunk IDs; read each chunk file for file + header + body
-  - [ ] 3.3 If new/changed hunks → write new chunk files, append rows to index, review them (back to Step 2)
+  - [ ] 3.2 Read index to enumerate hunk IDs; read each hunk file for file + header + body
+  - [ ] 3.3 If new/changed hunks → write new hunk files, append rows to index, review them (back to Step 2)
   - [ ] 3.4 Confirm full coverage, set Phase to "verified" in index
 - [ ] Step 4: Generate Report
   - [ ] Load references/report-template.md
-  - [ ] 4.1 Read index for ordered chunk list + metadata; read each chunk/[id].md for hunk details
+  - [ ] 4.1 Read index for ordered hunk list + metadata; read each hunk/[id].md for hunk details
   - [ ] 4.2 Build Markdown report (detected language, diff order)
   - [ ] 4.3 Save to .review/[review-name]-report.md
   - [ ] 4.4 Set Phase to "completed" in index
@@ -121,11 +121,11 @@ Present the state to the user and ask:
 
 ### 0.4 Resume flow
 
-When resuming, read `.review/[review-name]/diff-review-progress.md` (the index) to get the chunk table. Filter to only rows with `Status: pending`. Enter Step 2 with these chunk IDs — each chunk's data is in `chunk/[id].md`. Previously reviewed chunks are preserved.
+When resuming, read `.review/[review-name]/diff-review-progress.md` (the index) to get the hunk table. Filter to only rows with `Status: pending`. Enter Step 2 with these hunk IDs — each hunk's data is in `hunk/[id].md`. Previously reviewed hunks are preserved.
 
 ### 0.5 Restart flow
 
-Delete the entire `.review/[review-name]/` directory (which contains the index file and the `chunk/` subdirectory) and proceed to Step 1 from scratch.
+Delete the entire `.review/[review-name]/` directory (which contains the index file and the `hunk/` subdirectory) and proceed to Step 1 from scratch.
 
 ---
 
@@ -176,13 +176,13 @@ After parsing hunks, generate a short slug (`[review-name]`) that describes the 
 
 Load `references/progress-template.md` for the format specification.
 
-Create the `.review/[review-name]/chunk/` directory structure if needed, then write:
+Create the `.review/[review-name]/hunk/` directory structure if needed, then write:
 
 1. **Index file** — `.review/[review-name]/diff-review-progress.md`:
    - Header metadata (date, review name, diff source, language, target args, total hunks, reviewed = 0/N, phase = `reviewing`)
-   - Chunk table with one row per hunk: ID (zero-padded, e.g. `001`), file, type, status = `pending`
+   - Hunk table with one row per hunk: ID (zero-padded, e.g. `001`), file, type, status = `pending`
 
-2. **Chunk files** — `.review/[review-name]/chunk/[id].md` for each hunk (N Write operations):
+2. **Hunk files** — `.review/[review-name]/hunk/[id].md` for each hunk (N Write operations):
    - Header fields: type, status = `pending`, hunk header (`@@` line)
    - Empty Analysis and Decision sections
    - Raw diff body in a fenced code block
@@ -197,22 +197,22 @@ Set Phase to `reviewing` in the index (parsing is complete, ready for review loo
 
 All UI text uses the **detected language** from Step 1. Technical terms remain in English.
 
-Loop through each hunk (or pending chunks only if resuming): display → analyze → collect decision → **update files** → show tally → next.
+Loop through each hunk (or pending hunks only if resuming): display → analyze → collect decision → **update files** → show tally → next.
 
 ### Per-hunk updates (two Edit calls)
 
 After each hunk decision (2.3/2.4):
 
-**Edit 1 — chunk file** `.review/[review-name]/chunk/[id].md`:
+**Edit 1 — hunk file** `.review/[review-name]/hunk/[id].md`:
 1. **Update Status** — change `pending` to `✅ Accepted` or `❌ Rejected`.
 2. **Fill in Analysis** — replace the empty Analysis section with the summary, impact, risks, and suggestions.
 3. **Fill in Decision** — replace the empty Decision section with the accept/reject decision and rejection reason if applicable.
 
 **Edit 2 — index file** `.review/[review-name]/diff-review-progress.md`:
-1. **Update the chunk's status cell** in the table row (e.g., `pending` → `✅ Accepted`).
+1. **Update the hunk's status cell** in the table row (e.g., `pending` → `✅ Accepted`).
 2. **Update the Reviewed counter** — increment the `Reviewed: X / N` line in the header.
 
-The index + chunk files together are the source of truth — if context is lost, the review can resume from them.
+The index + hunk files together are the source of truth — if context is lost, the review can resume from them.
 
 After the first pass, loop back for any skipped hunks.
 
@@ -221,9 +221,9 @@ After the first pass, loop back for any skipped hunks.
 ## Step 3: Coverage Verification
 
 1. Re-run `resolve_diff.py` + `parse_hunks.py` with same arguments as Step 1 (read **Target Args** from index if needed).
-2. Read `.review/[review-name]/diff-review-progress.md` (the index) to enumerate all chunk IDs. Read each `chunk/[id].md` to get `file + header + body` for hash-matching.
-3. Compare new hunks against existing chunk entries by `file + header + body`.
-4. New/changed hunks found → write new `chunk/[id].md` files, append new rows to the index table, update Total Hunks, then go back to Step 2 for those chunks only.
+2. Read `.review/[review-name]/diff-review-progress.md` (the index) to enumerate all hunk IDs. Read each `hunk/[id].md` to get `file + header + body` for hash-matching.
+3. Compare new hunks against existing hunk entries by `file + header + body`.
+4. New/changed hunks found → write new `hunk/[id].md` files, append new rows to the index table, update Total Hunks, then go back to Step 2 for those hunks only.
 5. Confirm full coverage. Set Phase to `verified` in the index. Only proceed to Step 4 when all hunks are decided.
 
 ---
@@ -232,7 +232,7 @@ After the first pass, loop back for any skipped hunks.
 
 **Before starting this step**, load `references/report-template.md` for the full template.
 
-1. Read `.review/[review-name]/diff-review-progress.md` (the index) for the ordered chunk list and session metadata. Then read each `chunk/[id].md` for hunk data, analysis, and decisions.
+1. Read `.review/[review-name]/diff-review-progress.md` (the index) for the ordered hunk list and session metadata. Then read each `hunk/[id].md` for hunk data, analysis, and decisions.
 2. Build the report in the **detected language** (technical terms in English), ordered by original diff sequence.
 3. Save to `.review/[review-name]-report.md` and present to user.
 4. Set Phase to `completed` in the index.
@@ -311,7 +311,7 @@ Archives a completed review by moving the progress file to `.review/archive/`.
    - If Phase ≠ `completed` → warn: "Review `[review-name]` is not yet completed (Phase: `X`). Archive anyway?" — require user confirmation to proceed.
 3. Create `.review/archive/` directory if it does not exist.
 4. Move the entire `.review/[review-name]/` directory → `.review/archive/[review-name]/`
-   (preserves the index file and all `chunk/` files in the archive).
+   (preserves the index file and all `hunk/` files in the archive).
 5. Inform the user:
    > "Archived: `.review/archive/[review-name]/`"
    > "Report remains at: `.review/[review-name]-report.md`"
@@ -360,8 +360,8 @@ git-diff-review/
 
 ```
 .review/[review-name]/
-├── diff-review-progress.md        ← index only (metadata + chunk status table)
-└── chunk/
+├── diff-review-progress.md        ← index only (metadata + hunk status table)
+└── hunk/
     ├── 001.md                     ← hunk 1 data
     ├── 002.md                     ← hunk 2 data
     └── ...
@@ -371,9 +371,9 @@ git-diff-review/
 
 | File | Created By | Purpose |
 |------|-----------|---------|
-| `.review/[review-name]/diff-review-progress.md` | Step 1 | Index: session metadata + chunk status table (stays small) |
-| `.review/[review-name]/chunk/[id].md` | Step 1 | Per-chunk data: diff body, analysis, decision |
+| `.review/[review-name]/diff-review-progress.md` | Step 1 | Index: session metadata + hunk status table (stays small) |
+| `.review/[review-name]/hunk/[id].md` | Step 1 | Per-hunk data: diff body, analysis, decision |
 | `.review/[review-name]-report.md` | Step 4 | Final review report |
-| `.review/archive/[review-name]/` | `--archive` | Archived review directory (index + all chunk files) |
+| `.review/archive/[review-name]/` | `--archive` | Archived review directory (index + all hunk files) |
 
-**Review name** (`[review-name]`): a kebab-case slug auto-generated from the diff content at Step 1.5 (e.g., `fix-auth-login-flow`, `add-payment-endpoints`). Ties the index, chunk files, report, and archive together.
+**Review name** (`[review-name]`): a kebab-case slug auto-generated from the diff content at Step 1.5 (e.g., `fix-auth-login-flow`, `add-payment-endpoints`). Ties the index, hunk files, report, and archive together.
